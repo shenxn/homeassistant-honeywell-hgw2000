@@ -23,19 +23,22 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
   host = config.get(CONF_HOST)
   lights = config.get(CONF_DEVICES)
   interval = config.get(CONF_INTERVAL)
-  api = hass.data[HONEYWELL_HGW2000_API]
+
+  HoneywellLight.api = hass.data[HONEYWELL_HGW2000_API]
 
   total_interval = interval * len(lights)
-  add_devices(HoneywellLight(api, total_interval, lights[i], i * interval) for i in range(len(lights)))
+  HoneywellLight.interval = total_interval
+  add_devices(HoneywellLight(lights[i], i * interval) for i in range(len(lights)))
 
 class HoneywellLight(Light):
-  def __init__(self, api, interval, light, initial_update):
+  api = None
+  interval = 100
+
+  def __init__(self, light, initial_update):
     self._name = light['name']
     self._id = light['id']
     self._state = None
-    self._last_update = time.time() + initial_update - interval
-    self._api = api
-    self._interval = interval
+    self._last_update = time.time() + initial_update - self.interval
   
   @property
   def name(self):
@@ -53,7 +56,7 @@ class HoneywellLight(Light):
     return True
 
   def turn(self, switch):
-    return self.update_state(self._api.request('controllight', 'lightid={id}&lightswitch={switch}&action=4&dimmer=255&_='.format(id = self._id, switch = switch)), 'lightswitch')
+    return self.update_state(self.api.request('controllight', 'lightid={id}&lightswitch={switch}&action=4&dimmer=255&_='.format(id = self._id, switch = switch)), 'lightswitch')
 
   def turn_on(self):
     if not self.turn(1):
@@ -64,6 +67,6 @@ class HoneywellLight(Light):
       self.turn(0)
 
   def update(self):
-    if self._last_update == None or self._last_update + self._interval < time.time():
-      return self.update_state(self._api.request('querylight', 'lightid={id}&_='.format(id = self._id)), 'switch')
+    if self._last_update == None or self._last_update + self.interval < time.time():
+      return self.update_state(self.api.request('querylight', 'lightid={id}&_='.format(id = self._id)), 'switch')
     return True

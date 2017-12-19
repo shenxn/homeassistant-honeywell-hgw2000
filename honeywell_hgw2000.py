@@ -35,8 +35,13 @@ class HoneywellAPI():
     states = r.text.split(',')
     states_parsed = {}
     for state in states:
-      key_value = state.split(':')
-      states_parsed[key_value[0]] = key_value[1] if len(key_value) > 1 else ''
+      values = state.split(':')
+      if len(values) == 2:
+        states_parsed[values[0]] = values[1]
+      else:
+        if not '_' in states_parsed:
+          states_parsed['_'] = []
+        states_parsed['_'].append(values)
     if states_parsed['rt'] != '0':
       _LOGGER.error('Request failed [{action}({payload})]: {msg}'.format(action = action, payload = payload, msg = r.text))
     return states_parsed

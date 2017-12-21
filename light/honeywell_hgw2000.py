@@ -50,23 +50,19 @@ class HoneywellLight(Light):
 
   def update_state(self, states, key):
     if states['rt'] != '0':
-      return False
+      return
     self._state = states[key] == '1'
     self._last_update = time.time()
-    return True
 
   def turn(self, switch):
-    return self.update_state(self.api.request('controllight', 'lightid={id}&lightswitch={switch}&action=4&dimmer=255&_='.format(id = self._id, switch = switch)), 'lightswitch')
+    self.update_state(self.api.request('controllight', 'lightid={id}&lightswitch={switch}&action=4&dimmer=255&_='.format(id = self._id, switch = switch)), 'lightswitch')
 
-  def turn_on(self):
-    if not self.turn(1):
-      self.turn(1)
+  def turn_on(self, **kwargs):
+    self.turn(1)
   
-  def turn_off(self):
-    if not self.turn(0):
-      self.turn(0)
+  def turn_off(self, **kwargs):
+    self.turn(0)
 
   def update(self):
     if self._last_update == None or self._last_update + self.interval < time.time():
-      return self.update_state(self.api.request('querylight', 'lightid={id}&_='.format(id = self._id)), 'switch')
-    return True
+      self.update_state(self.api.request('querylight', 'lightid={id}&_='.format(id = self._id)), 'switch')

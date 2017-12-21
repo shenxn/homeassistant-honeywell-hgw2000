@@ -27,7 +27,7 @@ class HoneywellAPI():
   def __init__(self, host):
     self._host = host
 
-  def request(self, action, payload):
+  def request(self, action, payload, retry = 1):
     import requests
     r = requests.post(
       'http://{host}/cgi-bin/{action}.cgi'.format(host = self._host, action = action),
@@ -43,5 +43,8 @@ class HoneywellAPI():
           states_parsed['_'] = []
         states_parsed['_'].append(values)
     if states_parsed['rt'] != '0':
-      _LOGGER.error('Request failed [{action}({payload})]: {msg}'.format(action = action, payload = payload, msg = r.text))
+      if retry > 0:
+        self.request(action, payload, retry - 1)
+      else:
+        _LOGGER.error('Request failed [{action}({payload})]: {msg}'.format(action = action, payload = payload, msg = r.text))
     return states_parsed

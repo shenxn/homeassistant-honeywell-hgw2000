@@ -5,7 +5,7 @@ import json
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.helpers.entity import Entity
-from homeassistant.const import CONF_HOST, CONF_DEVICES
+from homeassistant.const import CONF_HOST, CONF_ID, CONF_SENSORS, CONF_SENSOR_TYPE
 import homeassistant.helpers.config_validation as cv
 
 DEPENDENCIES = ['honeywell_hgw2000']
@@ -14,22 +14,27 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_INTERVAL = 'interval'
 
+SENSOR_SCHEMA = vol.Schema({
+  vol.Required(CONF_ID): cv.positive_int,
+  vol.Required(CONF_SENSOR_TYPE, default = None): cv.string,
+})
+
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-  vol.Optional(CONF_DEVICES, default=[]): vol.All(cv.ensure_list, [dict]),
-  vol.Optional(CONF_INTERVAL, default = 5): cv.positive_int,
+  vol.Optional(CONF_SENSORS, default={}): vol.Schema({cv.slug: SENSOR_SCHEMA}),
+  vol.Optional(CONF_INTERVAL, default = 10): cv.positive_int,
 })
 
 HONEYWELL_HGW2000_API = 'honeywell_hgw2000_api'
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
   host = config.get(CONF_HOST)
-  sensors = config.get(CONF_DEVICES)
+  devices = config.get(CONF_SENSORS)
   HoneywellSensor.interval = config.get(CONF_INTERVAL)
   HoneywellSensor.api = hass.data[HONEYWELL_HGW2000_API]
 
   HoneywellSensor.update_states()
 
-  add_devices(HoneywellSensor(sensor) for sensor in sensors)
+  add_devices(HoneywellSensor(name, sensor_conf) for name, sensor_conf in devices.items())
 
 LOCK_TIMEOUT = 2
 
@@ -52,9 +57,10 @@ class HoneywellSensor(Entity):
 
   sensors = {}
 
-  def __init__(self, sensor):
-    self._name = sensor['name']
-    self._key = sensor['key']
+  def __init__(self, name, sensor_conf):
+    self._name = name
+    self._key = '1-{zone}'.format(zone = sensor_conf[CONF_ID])
+    self._type = sensor_conf[CONF_SENSOR_TYPE]
 
   @staticmethod
   def update_states():
@@ -91,12 +97,12 @@ class HoneywellSensor(Entity):
     return self._name
 
   @property
+  def device_class(self):
+    return self._type
+
+  @property
   def state(self):
     sensor = self.sensors[self._key]
-    if sensor['error']:
-      return 'error'
-    if not sensor['is_24h'] and not sensor['armed']:
-      return 'disarmed'
     return 'on' if sensor['alarmed'] else 'off'
 
   def update(self):

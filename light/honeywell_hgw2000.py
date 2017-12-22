@@ -3,7 +3,7 @@ import voluptuous as vol
 import time
 
 from homeassistant.components.light import Light, PLATFORM_SCHEMA
-from homeassistant.const import CONF_HOST, CONF_DEVICES
+from homeassistant.const import CONF_HOST, CONF_ID, CONF_LIGHTS
 import homeassistant.helpers.config_validation as cv
 
 DEPENDENCIES = ['honeywell_hgw2000']
@@ -12,8 +12,12 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_INTERVAL = 'interval'
 
+LIGHT_SCHEMA = vol.Schema({
+  vol.Required(CONF_ID): cv.positive_int
+})
+
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-  vol.Optional(CONF_DEVICES, default=[]): vol.All(cv.ensure_list, [dict]),
+  vol.Optional(CONF_LIGHTS, default={}): vol.Schema({cv.slug: LIGHT_SCHEMA}),
   vol.Optional(CONF_INTERVAL, default = 2): cv.positive_int,
 })
 
@@ -21,22 +25,28 @@ HONEYWELL_HGW2000_API = 'honeywell_hgw2000_api'
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
   host = config.get(CONF_HOST)
-  lights = config.get(CONF_DEVICES)
+  devices = config.get(CONF_LIGHTS)
   interval = config.get(CONF_INTERVAL)
 
   HoneywellLight.api = hass.data[HONEYWELL_HGW2000_API]
 
-  total_interval = interval * len(lights)
+  total_interval = interval * len(devices)
   HoneywellLight.interval = total_interval
-  add_devices(HoneywellLight(lights[i], i * interval) for i in range(len(lights)))
+  
+  initial_update = 0
+  lights = []
+  for name, light_conf in devices.items():
+    lights.append(HoneywellLight(name, light_conf, initial_update))
+    initial_update += interval
+  add_devices(lights)
 
 class HoneywellLight(Light):
   api = None
   interval = 100
 
-  def __init__(self, light, initial_update):
-    self._name = light['name']
-    self._id = light['id']
+  def __init__(self, name, light_conf, initial_update):
+    self._name = name
+    self._id = light_conf[CONF_ID]
     self._state = None
     self._last_update = time.time() + initial_update - self.interval
   

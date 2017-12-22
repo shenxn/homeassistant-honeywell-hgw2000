@@ -20,12 +20,28 @@ HONEYWELL_HGW2000_API = 'honeywell_hgw2000_api'
 
 def setup(hass, config):
   host = config[DOMAIN].get(CONF_HOST)
-  hass.data[HONEYWELL_HGW2000_API] = HoneywellAPI(host)
+  hass.states.set('{domain}.api_success_rate'.format(domain = DOMAIN), '100.0%')
+  hass.data[HONEYWELL_HGW2000_API] = HoneywellAPI(host, hass)
   return True
 
+LAST_CALLS_LIMIT = 100
+
 class HoneywellAPI():
-  def __init__(self, host):
+  def __init__(self, host, hass):
     self._host = host
+    self._hass = hass
+    self._last_calls = []
+    self._last_success_count = 0
+
+  def _count_request(self, succeed = True):
+    self._last_calls.append(succeed)
+    if len(self._last_calls) > LAST_CALLS_LIMIT:
+      first = self._last_calls.pop(0)
+      if first:
+        self._last_success_count -= 1
+    if succeed:
+      self._last_success_count += 1
+    self._hass.states.set('{domain}.api_success_rate'.format(domain = DOMAIN), '{rate:.1f}%'.format(rate = 100 * self._last_success_count / len(self._last_calls)))
 
   def request(self, action, payload, retry = 1):
     import requests
@@ -46,5 +62,8 @@ class HoneywellAPI():
       if retry > 0:
         self.request(action, payload, retry - 1)
       else:
-        _LOGGER.error('Request failed [{action}({payload})]: {msg}'.format(action = action, payload = payload, msg = r.text))
+        # _LOGGER.error('Request failed [{action}({payload})]: {msg}'.format(action = action, payload = payload, msg = r.text))
+        self._count_request(False)
+    else:
+      self._count_request()
     return states_parsed

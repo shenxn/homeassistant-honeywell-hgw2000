@@ -66,7 +66,7 @@ class HoneywellLight(Light):
     return True
 
   def turn(self, switch):
-    self.update_state(self.api.request('controllight', 'lightid={id}&lightswitch={switch}&action=4&dimmer=255&_='.format(id = self._id, switch = switch)), 'lightswitch')
+    self.update_state(self.api.request('controllight', 'lightid={id}&lightswitch={switch}&action=4&dimmer=255&_='.format(id = self._id, switch = switch), 5), 'lightswitch')
   
   def update_query(self, retry = 0):
     return self.update_state(self.api.request('querylight', 'lightid={id}&_='.format(id = self._id), retry), 'switch')
